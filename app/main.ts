@@ -38,6 +38,7 @@ function compressBody(body: string, encoding: string): string {
   }
 }
 
+// Only gzip is supported for this implementation
 function parseEncoding(buffer: string): string {
   if (!buffer.includes("Accept-Encoding: ")) return "";
 
