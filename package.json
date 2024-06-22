@@ -9,10 +9,10 @@
     "ci": "biome ci"
   },
   "dependencies": {
-    "async": "^3.2.0"
+    "async": "^3.2.5"
   },
   "devDependencies": {
-    "@types/node": "^20.12.11",
+    "@types/node": "^20.14.8",
     "@biomejs/biome": "^1.8.2"
   }
 }
