@@ -6,6 +6,10 @@ function parseRequest(buffer: string): [string, string] {
   return [method, path];
 }
 
+function parseBody(buffer: string): string {
+  return buffer.split("\r\n\r\n")[1];
+}
+
 function echoHandler(path: string): string {
   return path.slice(6);
 }
@@ -48,6 +52,26 @@ function handleGetRequest(path: string, buffer: string): string {
   }
 }
 
+function handlePostRequest(path: string, buffer: string): string {
+  switch (path) {
+    case path.startsWith("/files/") ? path : null: {
+      const fileName = path.slice(7);
+      const directory = extractDirectory();
+
+      if (!fs.existsSync(directory)) {
+        fs.mkdirSync(directory);
+      }
+
+      const content = parseBody(buffer);
+      fs.writeFileSync(`${directory}/${fileName}`, content);
+
+      return "HTTP/1.1 201 Created\r\n\r\n";
+    }
+    default:
+      return "HTTP/1.1 404 Not Found\r\n\r\n";
+  }
+}
+
 const server = net.createServer((socket) => {
   console.log("connected");
   socket.on("data", (data) => {
@@ -59,6 +83,10 @@ const server = net.createServer((socket) => {
       switch (method) {
         case "GET": {
           socket.write(handleGetRequest(path, buffer));
+          break;
+        }
+        case "POST": {
+          socket.write(handlePostRequest(path, buffer));
           break;
         }
         default:
