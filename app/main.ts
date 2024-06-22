@@ -39,11 +39,14 @@ function compressBody(body: string, encoding: string): string {
 }
 
 function parseEncoding(buffer: string): string {
+  if (!buffer.includes("Accept-Encoding: ")) return "";
+
   const acceptEncoding = buffer.split("Accept-Encoding: ")[1].split("\r\n")[0];
+  if (!acceptEncoding) return "";
+
   let encoding: string = acceptEncoding.split(",")[0];
-  if (encoding !== "gzip" && encoding !== "deflate") {
-    encoding = "";
-  }
+  if (encoding !== "gzip" && encoding !== "deflate") encoding = "";
+
   return encoding;
 }
 
