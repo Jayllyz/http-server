@@ -1,5 +1,6 @@
 import * as net from "node:net";
 import fs from "node:fs";
+import zlib from "node:zlib";
 
 function parseRequest(buffer: string): [string, string] {
   const [method, path] = buffer.split(" ");
@@ -21,7 +22,34 @@ function extractDirectory(): string {
     : "";
 }
 
+function compressBody(body: string, encoding: string): string {
+  switch (encoding) {
+    case "gzip": {
+      const compressed = zlib.gzipSync(body).toString("base64");
+      return compressed;
+    }
+    case "deflate": {
+      const compressed = zlib.deflateSync(body).toString("base64");
+      return compressed;
+    }
+
+    default:
+      return body;
+  }
+}
+
+function parseEncoding(buffer: string): string {
+  const acceptEncoding = buffer.split("Accept-Encoding: ")[1].split("\r\n")[0];
+  let encoding: string = acceptEncoding.split(",")[0];
+  if (encoding !== "gzip" && encoding !== "deflate") {
+    encoding = "";
+  }
+  return encoding;
+}
+
 function handleGetRequest(path: string, buffer: string): string {
+  const encoding = parseEncoding(buffer);
+
   switch (path) {
     case "/":
       return "HTTP/1.1 200 OK\r\n\r\n";
@@ -33,6 +61,11 @@ function handleGetRequest(path: string, buffer: string): string {
     case path.startsWith("/echo/") ? path : null: {
       const response = echoHandler(path);
       const length = response.length;
+      if (encoding !== "") {
+        const compressed = compressBody(response, encoding);
+        return `HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Encoding: ${encoding}\r\nContent-Length: ${compressed.length}\r\n\r\n${compressed}\r\n\r\n`;
+      }
+
       return `HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: ${length}\r\n\r\n${response}\r\n\r\n`;
     }
     case path.startsWith("/files/") ? path : null: {
@@ -44,6 +77,10 @@ function handleGetRequest(path: string, buffer: string): string {
       }
       const content = fs.readFileSync(`${directory}/${fileName}`, "utf-8");
       const length = content.length;
+      if (encoding !== "") {
+        const compressed = compressBody(content, encoding);
+        return `HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Encoding: ${encoding}\r\nContent-Length: ${compressed.length}\r\n\r\n${compressed}\r\n\r\n`;
+      }
 
       return `HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: ${length}\r\n\r\n${content}\r\n\r\n`;
     }
@@ -53,6 +90,8 @@ function handleGetRequest(path: string, buffer: string): string {
 }
 
 function handlePostRequest(path: string, buffer: string): string {
+  const encoding = parseEncoding(buffer);
+
   switch (path) {
     case path.startsWith("/files/") ? path : null: {
       const fileName = path.slice(7);
@@ -64,6 +103,11 @@ function handlePostRequest(path: string, buffer: string): string {
 
       const content = parseBody(buffer);
       fs.writeFileSync(`${directory}/${fileName}`, content);
+
+      if (encoding !== "") {
+        const compressed = compressBody(content, encoding);
+        return `HTTP/1.1 201 Created\r\nContent-Encoding: ${encoding}\r\nContent-Length: ${compressed.length}\r\n\r\n${compressed}\r\n\r\n`;
+      }
 
       return "HTTP/1.1 201 Created\r\n\r\n";
     }
