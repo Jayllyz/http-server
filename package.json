@@ -9,6 +9,7 @@
     "async": "^3.2.0"
   },
   "devDependencies": {
-    "@types/node": "^20.12.11"
+    "@types/node": "^20.12.11",
+    "@biomejs/biome": "^1.8.2"
   }
 }
