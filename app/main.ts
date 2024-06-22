@@ -25,7 +25,7 @@ function extractDirectory(): string {
 function compressBody(body: string, encoding: string): string {
   switch (encoding) {
     case "gzip": {
-      const compressed = zlib.gzipSync(body).toString("base64");
+      const compressed = zlib.gzipSync(body).toString();
       return compressed;
     }
     case "deflate": {
