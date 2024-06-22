@@ -22,49 +22,65 @@ function extractDirectory(): string {
     : "";
 }
 
-function compressBody(body: string, encoding: string): string {
+function compressBody(body: string, encoding: string): Buffer {
   switch (encoding) {
     case "gzip": {
-      const compressed = zlib.gzipSync(body).toString();
+      const buffer = Buffer.from(body, "utf8");
+      const compressed = zlib.gzipSync(buffer);
       return compressed;
     }
     case "deflate": {
-      const compressed = zlib.deflateSync(body).toString("base64");
+      const buffer = Buffer.from(body, "utf8");
+      const compressed = zlib.deflateSync(buffer);
       return compressed;
     }
 
     default:
-      return body;
+      return Buffer.from(body, "utf8");
   }
 }
 
-// Only gzip is supported for this implementation
 function parseEncoding(buffer: string): string {
   if (!buffer.includes("Accept-Encoding: ")) return "";
 
   const acceptEncoding = buffer.split("Accept-Encoding: ")[1].split("\r\n")[0];
   if (!acceptEncoding) return "";
 
-  const encodings = acceptEncoding.split(",");
-  for (const type of encodings) {
-    if (type.trim() === "gzip") {
-      return "gzip";
-    }
+  const encodings = acceptEncoding
+    .split(",")
+    .map((e) => e.trim().toLowerCase());
+
+  if (encodings.includes("gzip")) {
+    return "gzip";
+  }
+  if (encodings.includes("deflate")) {
+    return "deflate";
   }
 
   return "";
 }
 
-function handleGetRequest(path: string, buffer: string): string {
+function handleGetRequest(
+  path: string,
+  buffer: string,
+): { response: string; compressed: Buffer | null } {
   const encoding = parseEncoding(buffer);
 
   switch (path) {
     case "/":
-      return "HTTP/1.1 200 OK\r\n\r\n";
+      return {
+        response:
+          "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 0\r\n\r\n",
+        compressed: null,
+      };
+
     case "/user-agent": {
       const userAgent = buffer.split("User-Agent: ")[1].split("\r\n")[0];
       const length = userAgent.length;
-      return `HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: ${length}\r\n\r\n${userAgent}\r\n\r\n`;
+      return {
+        response: `HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: ${length}\r\n\r\n${userAgent}\r\n\r\n`,
+        compressed: null,
+      };
     }
     case path.startsWith("/echo/") ? path : null: {
       const response = echoHandler(path);
@@ -72,33 +88,55 @@ function handleGetRequest(path: string, buffer: string): string {
       if (encoding !== "") {
         const compressed = compressBody(response, encoding);
         console.log(compressed, response);
-        return `HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Encoding: ${encoding}\r\nContent-Length: ${compressed.length}\r\n\r\n${compressed}\r\n\r\n`;
+        return {
+          response: `HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Encoding: ${encoding}\r\nContent-Length: ${compressed.length}\r\n\r\n`,
+          compressed: compressed,
+        };
       }
 
-      return `HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: ${length}\r\n\r\n${response}\r\n\r\n`;
+      return {
+        response: `HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: ${length}\r\n\r\n${response}\r\n\r\n`,
+        compressed: null,
+      };
     }
     case path.startsWith("/files/") ? path : null: {
       const fileName = path.slice(7);
       const directory = extractDirectory();
 
       if (!fs.existsSync(`${directory}/${fileName}`)) {
-        return "HTTP/1.1 404 Not Found\r\n\r\n";
+        return {
+          response: "HTTP/1.1 404 Not Found\r\n\r\n",
+          compressed: null,
+        };
       }
+
       const content = fs.readFileSync(`${directory}/${fileName}`, "utf-8");
       const length = content.length;
       if (encoding !== "") {
         const compressed = compressBody(content, encoding);
-        return `HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Encoding: ${encoding}\r\nContent-Length: ${compressed.length}\r\n\r\n${compressed}\r\n\r\n`;
+        return {
+          response: `HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Encoding: ${encoding}\r\nContent-Length: ${compressed.length}\r\n\r\n`,
+          compressed: compressed,
+        };
       }
 
-      return `HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: ${length}\r\n\r\n${content}\r\n\r\n`;
+      return {
+        response: `HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: ${length}\r\n\r\n${content}\r\n\r\n`,
+        compressed: null,
+      };
     }
     default:
-      return "HTTP/1.1 404 Not Found\r\n\r\n";
+      return {
+        response: "HTTP/1.1 404 Not Found\r\n\r\n",
+        compressed: null,
+      };
   }
 }
 
-function handlePostRequest(path: string, buffer: string): string {
+function handlePostRequest(
+  path: string,
+  buffer: string,
+): { response: string; compressed: Buffer | null } {
   const encoding = parseEncoding(buffer);
 
   switch (path) {
@@ -115,13 +153,22 @@ function handlePostRequest(path: string, buffer: string): string {
 
       if (encoding !== "") {
         const compressed = compressBody(content, encoding);
-        return `HTTP/1.1 201 Created\r\nContent-Encoding: ${encoding}\r\nContent-Length: ${compressed.length}\r\n\r\n${compressed}\r\n\r\n`;
+        return {
+          response: `HTTP/1.1 201 Created\r\nContent-Encoding: ${encoding}\r\nContent-Length: ${compressed.length}\r\n\r\n${compressed}\r\n\r\n`,
+          compressed: compressed,
+        };
       }
 
-      return "HTTP/1.1 201 Created\r\n\r\n";
+      return {
+        response: `HTTP/1.1 201 Created\r\nContent-Length: ${content.length}\r\n\r\n${content}\r\n\r\n`,
+        compressed: null,
+      };
     }
     default:
-      return "HTTP/1.1 404 Not Found\r\n\r\n";
+      return {
+        response: "HTTP/1.1 404 Not Found\r\n\r\n",
+        compressed: null,
+      };
   }
 }
 
@@ -135,11 +182,19 @@ const server = net.createServer((socket) => {
 
       switch (method) {
         case "GET": {
-          socket.write(handleGetRequest(path, buffer));
+          const { response, compressed } = handleGetRequest(path, buffer);
+          socket.write(response);
+          if (compressed) {
+            socket.write(compressed);
+          }
           break;
         }
         case "POST": {
-          socket.write(handlePostRequest(path, buffer));
+          const { response, compressed } = handlePostRequest(path, buffer);
+          socket.write(response);
+          if (compressed) {
+            socket.write(compressed);
+          }
           break;
         }
         default:
