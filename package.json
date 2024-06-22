@@ -3,7 +3,10 @@
   "description": "Build your own HTTP Server challenge, from CodeCrafters",
   "type": "module",
   "scripts": {
-    "dev": "bun run app/main.ts"
+    "dev": "bun --watch app/main.ts",
+    "lint": "biome check --fix",
+    "lint:check": "biome check",
+    "ci": "biome ci"
   },
   "dependencies": {
     "async": "^3.2.0"
