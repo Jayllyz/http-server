@@ -13,7 +13,7 @@ function handleGetRequest(path: string, buffer: string): string {
   switch (path) {
     case "/":
       return "HTTP/1.1 200 OK\r\n\r\n";
-    case path.startsWith("/echo") ? path : null: {
+    case path.startsWith("/echo/") ? path : null: {
       const response = echoHandler(path);
       const length = response.length;
       return `HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: ${length}\r\n\r\n${response}\r\n\r\n`;
