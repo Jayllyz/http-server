@@ -1,5 +1,5 @@
-import * as net from "node:net";
 import fs from "node:fs";
+import * as net from "node:net";
 import zlib from "node:zlib";
 
 function parseRequest(buffer: string): [string, string] {
@@ -44,10 +44,14 @@ function parseEncoding(buffer: string): string {
   const acceptEncoding = buffer.split("Accept-Encoding: ")[1].split("\r\n")[0];
   if (!acceptEncoding) return "";
 
-  let encoding: string = acceptEncoding.split(",")[0];
-  if (encoding !== "gzip" && encoding !== "deflate") encoding = "";
+  const encodings = acceptEncoding.split(",");
+  for (const type of encodings) {
+    if (type === "gzip") {
+      return "gzip";
+    }
+  }
 
-  return encoding;
+  return "";
 }
 
 function handleGetRequest(path: string, buffer: string): string {
