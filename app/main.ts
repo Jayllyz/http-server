@@ -46,7 +46,7 @@ function parseEncoding(buffer: string): string {
 
   const encodings = acceptEncoding.split(",");
   for (const type of encodings) {
-    if (type === "gzip") {
+    if (type.trim() === "gzip") {
       return "gzip";
     }
   }
