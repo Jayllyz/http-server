@@ -71,6 +71,7 @@ function handleGetRequest(path: string, buffer: string): string {
       const length = response.length;
       if (encoding !== "") {
         const compressed = compressBody(response, encoding);
+        console.log(compressed, response);
         return `HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Encoding: ${encoding}\r\nContent-Length: ${compressed.length}\r\n\r\n${compressed}\r\n\r\n`;
       }
 
