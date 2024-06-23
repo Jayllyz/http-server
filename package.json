@@ -4,6 +4,8 @@
   "type": "module",
   "scripts": {
     "dev": "bun --watch app/main.ts",
+    "build": "bun build ./app/main.ts --outdir ./dist --target bun",
+    "start": "bun ./dist/main.js",
     "lint": "biome check --fix",
     "lint:check": "biome check",
     "ci": "biome ci"
@@ -12,7 +14,8 @@
     "async": "^3.2.5"
   },
   "devDependencies": {
+    "@biomejs/biome": "^1.8.2",
     "@types/node": "^20.14.8",
-    "@biomejs/biome": "^1.8.2"
+    "vitest": "^1.6.0"
   }
 }
