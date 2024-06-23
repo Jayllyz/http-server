@@ -4,11 +4,14 @@ import zlib from "node:zlib";
 
 function parseRequest(buffer: string): [string, string] {
   const [method, path] = buffer.split(" ");
+  if (!method || !path) {
+    throw new Error("Invalid request");
+  }
   return [method, path];
 }
 
 function parseBody(buffer: string): string {
-  return buffer.split("\r\n\r\n")[1];
+  return buffer.split("\r\n\r\n")[1] || "";
 }
 
 function echoHandler(path: string): string {
@@ -18,7 +21,7 @@ function echoHandler(path: string): string {
 function extractDirectory(): string {
   const index = process.argv.indexOf("--directory");
   return index > 0 && index + 1 < process.argv.length
-    ? process.argv[index + 1]
+    ? process.argv[index + 1] || ""
     : "";
 }
 
@@ -43,7 +46,7 @@ function compressBody(body: string, encoding: string): Buffer {
 function parseEncoding(buffer: string): string {
   if (!buffer.includes("Accept-Encoding: ")) return "";
 
-  const acceptEncoding = buffer.split("Accept-Encoding: ")[1].split("\r\n")[0];
+  const acceptEncoding = buffer.split("Accept-Encoding: ")[1]?.split("\r\n")[0];
   if (!acceptEncoding) return "";
 
   const encodings = acceptEncoding
@@ -75,7 +78,13 @@ function handleGetRequest(
       };
 
     case "/user-agent": {
-      const userAgent = buffer.split("User-Agent: ")[1].split("\r\n")[0];
+      const userAgent = buffer.split("User-Agent: ")[1]?.split("\r\n")[0];
+      if (!userAgent) {
+        return {
+          response: "HTTP/1.1 500 Internal Server Error\r\n\r\n",
+          compressed: null,
+        };
+      }
       const length = userAgent.length;
       return {
         response: `HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: ${length}\r\n\r\n${userAgent}\r\n\r\n`,
@@ -87,7 +96,6 @@ function handleGetRequest(
       const length = response.length;
       if (encoding !== "") {
         const compressed = compressBody(response, encoding);
-        console.log(compressed, response);
         return {
           response: `HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Encoding: ${encoding}\r\nContent-Length: ${compressed.length}\r\n\r\n`,
           compressed: compressed,
@@ -173,12 +181,11 @@ function handlePostRequest(
 }
 
 const server = net.createServer((socket) => {
-  console.log("connected");
+  console.info("connected");
   socket.on("data", (data) => {
     const buffer = data.toString();
     if (buffer.includes("\r\n")) {
       const [method, path] = parseRequest(buffer);
-      console.log(method, path);
 
       switch (method) {
         case "GET": {
@@ -203,6 +210,7 @@ const server = net.createServer((socket) => {
     }
   });
   socket.on("close", () => {
+    console.info("disconnected");
     socket.end();
   });
 });
